@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,17 +20,17 @@ func main() {
 	var t int
 	signals := make(chan os.Signal, 1)
 	StartServerWithGracefulShutDown(context.Background(), server, signals)
-
 	for {
 		if t != 10 {
 			t += 1
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Millisecond * 500)
 			fmt.Println("server doing a job...", t)
 		} else {
 			signals <- syscall.SIGINT
+			close(signals)
+			return
 		}
 	}
-
 }
 
 func StartServerWithGracefulShutDown(ctx context.Context, server *http.Server, signals chan os.Signal) {
@@ -40,10 +41,11 @@ func StartServerWithGracefulShutDown(ctx context.Context, server *http.Server, s
 			log.Println("shutdown error", err)
 		}
 		log.Println("server stopped. signal: ", signals)
-		err := server.ListenAndServe()
-		if err != nil {
-			log.Fatal(err)
-		}
+		close(signals)
 	}()
 	fmt.Println("8181 port,server running...")
+	_, err := net.Listen("tcp", ":8181")
+	if err != nil {
+		log.Fatal(err)
+	}
 }
